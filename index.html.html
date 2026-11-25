@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb" id="themeColor">
+<title>열공기록 타이머</title>
+<style>
+  :root {
+    --bg: #eff6ff;
+    --card: #ffffff;
+    --primary: #2563eb;
+    --on-primary: #ffffff;
+    --primary-text: #2563eb;
+    --soft: #dbeafe;
+    --cell: #f5f9ff;
+    --ring: rgba(37, 99, 235, .15);
+    --text: #1f2437;
+    --muted: #8a90a6;
+    --line: #dbe5f5;
+    --danger: #ef4444;
+    --ok: #10b981;
+    --radius: 18px;
+    --shadow: 0 10px 30px rgba(40, 50, 100, .10);
+  }
+  /* ---------- 색상 테마 (파랑이 기본값) ---------- */
+  [data-theme="yellow"] {
+    --bg: #fffaeb; --primary: #f5b301; --on-primary: #3b2f00; --primary-text: #b38600;
+    --soft: #fff0b8; --cell: #fffdf4; --ring: rgba(245, 179, 1, .28); --line: #f3e8c0;
+  }
+  [data-theme="white"] {
+    --bg: #ffffff; --primary: #374151; --on-primary: #ffffff; --primary-text: #1f2937;
+    --soft: #eceef1; --cell: #f7f7f8; --ring: rgba(55, 65, 81, .15); --line: #e5e7eb;
+    --shadow: 0 8px 24px rgba(0, 0, 0, .07), 0 0 0 1px #e5e7eb;
+  }
+  [data-theme="pink"] {
+    --bg: #fff1f7; --primary: #ec4899; --on-primary: #ffffff; --primary-text: #db2777;
+    --soft: #fcdcec; --cell: #fff7fb; --ring: rgba(236, 72, 153, .18); --line: #f8dbe9;
+  }
+  [data-theme="green"] {
+    --bg: #f0fdf4; --primary: #16a34a; --on-primary: #ffffff; --primary-text: #15803d;
+    --soft: #d4f5de; --cell: #f6fef9; --ring: rgba(22, 163, 74, .18); --line: #d5ecdc;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  button { font-family: inherit; cursor: pointer; border: none; }
+
+  /* ---------- 화면 공통 ---------- */
+  .screen {
+    display: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: max(20px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+    flex-direction: column;
+    align-items: center;
+  }
+  .screen.active { display: flex; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .topbar {
+    width: 100%; max-width: 560px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .topbar h2 { margin: 0; font-size: 1.15rem; }
+  .back-btn {
+    background: var(--card); color: var(--text);
+    padding: 10px 16px; border-radius: 12px; font-size: .95rem;
+    box-shadow: 0 2px 8px rgba(40,50,100,.08);
+  }
+  .back-btn:active { transform: scale(.97); }
+  .topbar .spacer { width: 78px; }
+
+  /* ---------- 홈 ---------- */
+  #home { justify-content: center; }
+  .home-title { text-align: center; margin-bottom: 34px; }
+  .home-title h1 { margin: 0 0 6px; font-size: 1.8rem; }
+  .home-title p { margin: 0; color: var(--muted); }
+  .menu { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 16px; }
+  .menu button {
+    background: var(--card); color: var(--text);
+    padding: 22px 20px; font-size: 1.2rem; font-weight: 700;
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    transition: transform .12s, background .2s, color .2s;
+  }
+  .menu button:hover { background: var(--primary); color: var(--on-primary); }
+  .menu button:active { transform: scale(.97); }
+  .menu .ico { font-size: 1.5rem; }
+
+  /* ---------- 타이머 ---------- */
+  .timer-wrap {
+    flex: 1; width: 100%; max-width: 560px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 28px;
+  }
+  .timer-card {
+    background: var(--card); border-radius: 28px; box-shadow: var(--shadow);
+    padding: 40px 24px; width: 100%; text-align: center;
+  }
+  .timer-label { color: var(--muted); font-size: .95rem; margin-bottom: 8px; }
+  .timer-display {
+    font-size: clamp(3.6rem, 21vw, 7.5rem);
+    font-weight: 800; letter-spacing: 2px; line-height: 1.1;
+    font-variant-numeric: tabular-nums; color: var(--primary-text);
+  }
+  .timer-unit {
+    display: flex; justify-content: center; gap: 0;
+    color: var(--muted); font-size: .9rem; margin-top: 4px;
+  }
+  .timer-today { margin-top: 18px; color: var(--muted); font-size: .95rem; }
+  .timer-today b { color: var(--text); }
+  .status { display: inline-block; margin-top: 12px; font-size: .85rem; padding: 4px 12px; border-radius: 999px; background: var(--soft); color: var(--muted); }
+  .status.running { background: #d1fae5; color: #047857; }
+
+  .controls { display: flex; gap: 12px; width: 100%; }
+  .controls button {
+    flex: 1; padding: 18px 8px; font-size: 1.1rem; font-weight: 700;
+    border-radius: 16px; color: #fff; transition: transform .12s, opacity .2s;
+  }
+  .controls button:active { transform: scale(.96); }
+  .controls button:disabled { opacity: .4; cursor: not-allowed; }
+  #startBtn { background: var(--primary); color: var(--on-primary); }
+  #pauseBtn { background: #f59e0b; }
+  #resetBtn { background: #6b7280; }
+
+  /* ---------- 설정(색상 선택) ---------- */
+  .settings-card {
+    width: 100%; max-width: 560px; background: var(--card);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px 16px;
+  }
+  .settings-card h3 { margin: 0 0 4px; font-size: 1.1rem; }
+  .settings-card p { margin: 0 0 20px; color: var(--muted); font-size: .9rem; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 12px; }
+  .swatch {
+    background: var(--cell); color: var(--text); border: 2px solid transparent;
+    border-radius: 16px; padding: 16px 8px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    font-size: .95rem; font-weight: 700; transition: transform .12s, border-color .2s;
+  }
+  .swatch:hover { border-color: var(--primary); }
+  .swatch:active { transform: scale(.96); }
+  .swatch .dot {
+    width: 46px; height: 46px; border-radius: 50%; background: var(--c);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .10);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--k); font-size: 1.25rem;
+  }
+  .swatch.selected { border-color: var(--primary); background: var(--soft); }
+  .swatch.selected .dot::after { content: "✓"; }
+
+  /* ---------- 달력 ---------- */
+  .cal-card {
+    width: 100%; max-width: 560px; background: var(--card);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 12px 16px;
+  }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 12px; }
+  .cal-head .title { font-size: 1.25rem; font-weight: 800; text-align: center; }
+  .cal-head .sum { display: block; font-size: .8rem; color: var(--muted); font-weight: 500; margin-top: 2px; }
+  .nav-btn { background: var(--soft); color: var(--text); width: 40px; height: 40px; border-radius: 12px; font-size: 1.1rem; }
+  .nav-btn:active { transform: scale(.94); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .dow { text-align: center; font-size: .8rem; font-weight: 700; color: var(--muted); padding: 6px 0; }
+  .dow:first-child, .cell.sun .num { color: var(--danger); }
+  .dow:nth-child(7), .cell.sat .num { color: #3b82f6; }
+  .cell {
+    min-height: 66px; border-radius: 12px; background: var(--cell);
+    padding: 5px 3px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer; border: 2px solid transparent; overflow: hidden;
+  }
+  .cell.empty { background: transparent; cursor: default; }
+  .cell:not(.empty):hover { border-color: var(--primary); }
+  .cell .num { font-size: .9rem; font-weight: 700; }
+  .cell .rec {
+    font-size: .68rem; font-weight: 700; color: var(--on-primary); background: var(--primary);
+    border-radius: 8px; padding: 2px 5px; white-space: nowrap; max-width: 100%;
+  }
+  .cell.today { border-color: var(--primary); background: var(--soft); }
+  .cell .memo-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+  .cal-hint { margin-top: 12px; text-align: center; color: var(--muted); font-size: .8rem; }
+
+  /* ---------- 다이어리 ---------- */
+  .diary-card {
+    width: 100%; max-width: 560px; flex: 1; background: var(--card);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px;
+    display: flex; flex-direction: column; gap: 12px; min-height: 0;
+  }
+  .diary-date { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .diary-date input[type=date] {
+    padding: 10px 12px; font-size: 1rem; border: 1px solid var(--line);
+    border-radius: 10px; background: #fff; color: var(--text); font-family: inherit;
+  }
+  .diary-date .today-btn { background: var(--soft); color: var(--text); padding: 10px 14px; border-radius: 10px; font-size: .9rem; }
+  .diary-study { font-size: .9rem; color: var(--muted); }
+  .diary-study b { color: var(--primary-text); }
+  #memo {
+    flex: 1; min-height: 280px; width: 100%; resize: none;
+    border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+    font-family: inherit; font-size: 1rem; line-height: 1.7; color: var(--text);
+    background: var(--cell); outline: none;
+  }
+  #memo:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+  .diary-foot { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; color: var(--muted); }
+  .del-btn { background: transparent; color: var(--danger); padding: 6px 10px; font-size: .85rem; }
+
+  @media (max-width: 420px) {
+    .cell { min-height: 58px; }
+    .cell .rec { font-size: .6rem; padding: 2px 3px; }
+    .home-title h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 홈 ===== -->
+<section id="home" class="screen active">
+  <div class="home-title">
+    <h1>📚 공부시간 타이머</h1>
+    <p>오늘도 집중해서 한 걸음 더!</p>
+  </div>
+  <div class="menu">
+    <button data-go="timer"><span class="ico">⏱️</span>타이머</button>
+    <button data-go="calendar"><span class="ico">📅</span>달력</button>
+    <button data-go="diary"><span class="ico">📓</span>다이어리</button>
+    <button data-go="settings"><span class="ico">⚙️</span>설정</button>
+  </div>
+</section>
+
+<!-- ===== 타이머 ===== -->
+<section id="timer" class="screen">
+  <div class="topbar">
+    <button class="back-btn" data-go="home">← 홈</button>
+    <h2>타이머</h2>
+    <span class="spacer"></span>
+  </div>
+  <div class="timer-wrap">
+    <div class="timer-card">
+      <div class="timer-label">공부 시간</div>
+      <div class="timer-display" id="display">00:00</div>
+      <div class="timer-unit">분 : 초</div>
+      <div class="timer-today">오늘 누적 <b id="todayTotal">0초</b></div>
+      <span class="status" id="status">정지됨</span>
+    </div>
+    <div class="controls">
+      <button id="startBtn">▶ 시작</button>
+      <button id="pauseBtn" disabled>⏸ 일시정지</button>
+      <button id="resetBtn">↺ 초기화</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 달력 ===== -->
+<section id="calendar" class="screen">
+  <div class="topbar">
+    <button class="back-btn" data-go="home">← 홈</button>
+    <h2>달력</h2>
+    <span class="spacer"></span>
+  </div>
+  <div class="cal-card">
+    <div class="cal-head">
+      <button class="nav-btn" id="prevMonth" aria-label="이전 달">◀</button>
+      <div class="title"><span id="calTitle"></span><span class="sum" id="calSum"></span></div>
+      <button class="nav-btn" id="nextMonth" aria-label="다음 달">▶</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-hint">날짜를 누르면 그날의 다이어리를 열어요 · 🟢 점은 메모가 있는 날</div>
+  </div>
+</section>
+
+<!-- ===== 다이어리 ===== -->
+<section id="diary" class="screen">
+  <div class="topbar">
+    <button class="back-btn" data-go="home">← 홈</button>
+    <h2>다이어리</h2>
+    <span class="spacer"></span>
+  </div>
+  <div class="diary-card">
+    <div class="diary-date">
+      <input type="date" id="memoDate">
+      <button class="today-btn" id="memoToday">오늘</button>
+    </div>
+    <div class="diary-study">이 날 공부시간: <b id="memoStudy">0초</b></div>
+    <textarea id="memo" placeholder="오늘의 공부 내용, 느낀 점 등을 자유롭게 적어보세요."></textarea>
+    <div class="diary-foot">
+      <span id="saveState">자동 저장됩니다</span>
+      <button class="del-btn" id="memoDelete">이 날 메모 삭제</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 설정(색상 선택) ===== -->
+<section id="settings" class="screen">
+  <div class="topbar">
+    <button class="back-btn" data-go="home">← 홈</button>
+    <h2>설정</h2>
+    <span class="spacer"></span>
+  </div>
+  <div class="settings-card">
+    <h3>🎨 디자인 색상</h3>
+    <p>원하는 색을 누르면 앱 전체 색상이 바뀌어요.</p>
+    <div class="swatches">
+      <button class="swatch" data-theme="yellow" style="--c:#f5b301;--k:#3b2f00"><span class="dot"></span>노랑</button>
+      <button class="swatch" data-theme="white"  style="--c:#ffffff;--k:#374151"><span class="dot"></span>화이트</button>
+      <button class="swatch" data-theme="blue"   style="--c:#2563eb;--k:#ffffff"><span class="dot"></span>파랑</button>
+      <button class="swatch" data-theme="pink"   style="--c:#ec4899;--k:#ffffff"><span class="dot"></span>핑크</button>
+      <button class="swatch" data-theme="green"  style="--c:#16a34a;--k:#ffffff"><span class="dot"></span>초록</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  /* ---------- 유틸 ---------- */
+  const $ = (s) => document.querySelector(s);
+  const pad = (n) => String(n).padStart(2, "0");
+  const dateKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  const store = {
+    get(key, fallback) {
+      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+      catch (e) { return fallback; }
+    },
+    set(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+    }
+  };
+
+  let records = store.get("study_records", {}); // { "2026-11-25": 초 }
+  let memos   = store.get("study_memos", {});   // { "2026-11-25": "텍스트" }
+
+  // 긴 형식: 1시간 5분 3초
+  function fmtLong(sec) {
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    const parts = [];
+    if (h) parts.push(`${h}시간`);
+    if (m) parts.push(`${m}분`);
+    if (s || !parts.length) parts.push(`${s}초`);
+    return parts.join(" ");
+  }
+  // 짧은 형식(달력 칸): 1h05m / 25m / 40s
+  function fmtShort(sec) {
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60);
+    if (h) return `${h}h${pad(m)}m`;
+    if (m) return `${m}m`;
+    return `${sec}s`;
+  }
+
+  /* ---------- 화면 전환 ---------- */
+  const screens = document.querySelectorAll(".screen");
+  function show(name) {
+    screens.forEach(s => s.classList.toggle("active", s.id === name));
+    window.scrollTo(0, 0);
+    if (name === "calendar") renderCalendar();
+    if (name === "diary") loadMemo();
+    if (name === "timer") updateTodayTotal();
+  }
+  document.querySelectorAll("[data-go]").forEach(b =>
+    b.addEventListener("click", () => {
+      const target = b.dataset.go;
+      if (target === "calendar") { viewYear = new Date().getFullYear(); viewMonth = 10; } // 11월
+      if (target === "diary") { $("#memoDate").value = dateKey(); }
+      show(target);
+    })
+  );
+
+  /* ---------- 타이머 ---------- */
+  // 00:00에서 시작, 시작하면 1초씩 증가, 초기화하면 00:00으로 복귀
+  let seconds = 0;
+  let timerId = null;
+  let lastTick = 0;
+  const display = $("#display"), statusEl = $("#status");
+  const startBtn = $("#startBtn"), pauseBtn = $("#pauseBtn"), resetBtn = $("#resetBtn");
+
+  function renderTimer() {
+    const m = Math.floor(seconds / 60), s = seconds % 60;
+    display.textContent = `${pad(m)}:${pad(s)}`;
+    document.title = (timerId ? `${display.textContent} · ` : "") + "열공기록 타이머";
+  }
+  function updateTodayTotal() {
+    $("#todayTotal").textContent = fmtLong(records[dateKey()] || 0);
+  }
+  function addRecord(sec) {
+    const k = dateKey();
+    records[k] = (records[k] || 0) + sec;
+    store.set("study_records", records);
+  }
+  function tick() {
+    const now = Date.now();
+    const delta = Math.floor((now - lastTick) / 1000);
+    if (delta > 0) {
+      lastTick += delta * 1000;
+      seconds += delta;
+      addRecord(delta);
+      renderTimer();
+      updateTodayTotal();
+      if ($("#calendar").classList.contains("active")) renderCalendar();
+    }
+  }
+  function start() {
+    if (timerId) return;
+    lastTick = Date.now();
+    timerId = setInterval(tick, 200);
+    startBtn.disabled = true; pauseBtn.disabled = false;
+    statusEl.textContent = "측정 중"; statusEl.classList.add("running");
+  }
+  function pause() {
+    if (!timerId) return;
+    tick();
+    clearInterval(timerId); timerId = null;
+    startBtn.disabled = false; pauseBtn.disabled = true;
+    startBtn.textContent = "▶ 계속";
+    statusEl.textContent = "일시정지"; statusEl.classList.remove("running");
+    renderTimer();
+  }
+  function reset() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    seconds = 0;
+    startBtn.disabled = false; pauseBtn.disabled = true;
+    startBtn.textContent = "▶ 시작";
+    statusEl.textContent = "정지됨"; statusEl.classList.remove("running");
+    renderTimer();
+  }
+  startBtn.addEventListener("click", start);
+  pauseBtn.addEventListener("click", pause);
+  resetBtn.addEventListener("click", reset);
+
+  // 화면이 다시 보일 때 즉시 보정 (스마트폰 백그라운드 대응)
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && timerId) tick(); });
+  window.addEventListener("beforeunload", () => { if (timerId) tick(); });
+
+  /* ---------- 달력 ---------- */
+  let viewYear = new Date().getFullYear();
+  let viewMonth = 10; // 0부터 시작 → 10 = 11월
+  const calGrid = $("#calGrid");
+
+  function renderCalendar() {
+    $("#calTitle").textContent = `${viewYear}년 ${viewMonth + 1}월`;
+    calGrid.innerHTML = "";
+    ["일","월","화","수","목","금","토"].forEach(d => {
+      const el = document.createElement("div");
+      el.className = "dow"; el.textContent = d; calGrid.appendChild(el);
+    });
+    const first = new Date(viewYear, viewMonth, 1).getDay();
+    const days = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const todayK = dateKey();
+    let monthTotal = 0;
+
+    for (let i = 0; i < first; i++) {
+      const e = document.createElement("div"); e.className = "cell empty"; calGrid.appendChild(e);
+    }
+    for (let d = 1; d <= days; d++) {
+      const k = `${viewYear}-${pad(viewMonth + 1)}-${pad(d)}`;
+      const dow = (first + d - 1) % 7;
+      const cell = document.createElement("div");
+      cell.className = "cell" + (dow === 0 ? " sun" : dow === 6 ? " sat" : "") + (k === todayK ? " today" : "");
+      cell.innerHTML = `<span class="num">${d}</span>`;
+      const sec = records[k] || 0;
+      if (sec > 0) {
+        monthTotal += sec;
+        const r = document.createElement("span");
+        r.className = "rec"; r.textContent = fmtShort(sec); r.title = fmtLong(sec);
+        cell.appendChild(r);
+      }
+      if (memos[k] && memos[k].trim()) {
+        const dot = document.createElement("span"); dot.className = "memo-dot"; cell.appendChild(dot);
+      }
+      cell.addEventListener("click", () => { $("#memoDate").value = k; show("diary"); });
+      calGrid.appendChild(cell);
+    }
+    $("#calSum").textContent = `이달 총 ${fmtLong(monthTotal)}`;
+  }
+  $("#prevMonth").addEventListener("click", () => {
+    viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } renderCalendar();
+  });
+  $("#nextMonth").addEventListener("click", () => {
+    viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } renderCalendar();
+  });
+
+  /* ---------- 다이어리 ---------- */
+  const memoEl = $("#memo"), memoDate = $("#memoDate"), saveState = $("#saveState");
+  let saveTimer = null;
+
+  function loadMemo() {
+    if (!memoDate.value) memoDate.value = dateKey();
+    const k = memoDate.value;
+    memoEl.value = memos[k] || "";
+    $("#memoStudy").textContent = fmtLong(records[k] || 0);
+    saveState.textContent = "자동 저장됩니다";
+  }
+  function saveMemo() {
+    const k = memoDate.value;
+    if (!k) return;
+    const text = memoEl.value;
+    if (text.trim()) memos[k] = text; else delete memos[k];
+    store.set("study_memos", memos);
+    saveState.textContent = "저장됨 ✓";
+  }
+  memoEl.addEventListener("input", () => {
+    saveState.textContent = "저장 중…";
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveMemo, 400);
+  });
+  memoDate.addEventListener("change", () => { clearTimeout(saveTimer); loadMemo(); });
+  $("#memoToday").addEventListener("click", () => { memoDate.value = dateKey(); loadMemo(); });
+  $("#memoDelete").addEventListener("click", () => {
+    if (!memoEl.value.trim()) return;
+    if (confirm("이 날의 메모를 삭제할까요?")) {
+      memoEl.value = ""; saveMemo(); saveState.textContent = "삭제됨";
+    }
+  });
+
+  /* ---------- 설정: 색상 테마 ---------- */
+  const THEMES = { yellow: "#f5b301", white: "#ffffff", blue: "#2563eb", pink: "#ec4899", green: "#16a34a" };
+  function applyTheme(name) {
+    if (!THEMES[name]) name = "blue";
+    document.documentElement.dataset.theme = name;
+    $("#themeColor").setAttribute("content", THEMES[name]);
+    document.querySelectorAll(".swatch").forEach(b => b.classList.toggle("selected", b.dataset.theme === name));
+    store.set("theme", name);
+  }
+  document.querySelectorAll(".swatch").forEach(b =>
+    b.addEventListener("click", () => applyTheme(b.dataset.theme))
+  );
+  applyTheme(store.get("theme", "blue"));
+
+  /* ---------- 초기화 ---------- */
+  // 처음 화면 제목 문구 변경
+  const homeH1 = document.querySelector(".home-title h1");
+  if (homeH1) homeH1.textContent = homeH1.textContent.replace("공부시간 타이머", "열공기록 타이머");
+
+  renderTimer();
+  updateTodayTotal();
+})();
+</script>
+</body>
+</html>
